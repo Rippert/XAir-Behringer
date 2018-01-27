@@ -1,25 +1,15 @@
-//
-// XAir_Command.c
-//
-//  Created on: Sep 19, 2014
-//
-//      XAir_Command: a simple udp client for XR12, 16 or 18 sending commands and getting answers
-//
-//      Author: Patrick-Gilles Maillot
-//
-// Changelog:
-// v 1.27: remove incorrect use of macro FD_ISSET(Xfd, &ufds) in receiving IO.
-// v 1.28: remove incorrect use of FD_ISSET() in buffer check.
-// v 1.29: Change to X32_cparse.c to accept strings with space chars.
-// v 1.30: Change line_size to 512 chars
-// v 1.31: added 's' flag to read/send scene/snippets/tidbits/X32node lines from file
-// v 1.32: longer timeout when read/send scene/snippets/tidbits/X32node lines from file
-// v 1.34: fixed comparison with wrong text
-// v 1.35: fixed meters case by cloning xfdump() in this file
-// v 1.36: fixed meters data length error
-// v 1.37: addresses limitations in certain C compilers wit getopt()
-// v 1.38: kb input is now treated as int
-// v 1.39: following changes to X32_cparse.c
+/*
+ * XAirSnapBackup.c
+ *
+ *  Created on: Jan 26, 2018
+ *
+ *  Backup and restore XAir settings and snapshots
+ *  Includes code modified from X32_Behringer project written by Patrick-Gilles Maillot
+ *  See: https://github.com/pmaillot/X32-Behringer.git
+ *
+ *      Authors: Ted Rippert, Patrick-Gilles Maillot
+ *
+ */
 //
 #include <stdlib.h>
 #include <stdio.h>
@@ -54,6 +44,10 @@ void Xdump(char *buf, int len, int debug);
 // External calls used
 extern int Xsprint(char *bd, int index, char format, void *bs);
 extern int Xcparse(char *buf, char *line);
+extern void Xfdump(char *header, char *buf, int len, int debug);
+
+// External Global Variable
+extern const char *scncmds[];
 
 
 #ifdef __WIN32__
@@ -136,119 +130,7 @@ do {																		\
 	else if (strcmp(input_line, "verbose on") == 0) 	X32verbose = 1;									\
 
 
-// specific to XR series: xdump and xfdump are copied/included here as meters are different (more consistent)
-// than on X32
-void Xdump(char *buf, int len, int debug)
-{
-	int i, k, n, j, l, comma = 0, data = 0, dtc = 0;
-	unsigned char c;
-	union littlebig {
-		char	c1[4];
-		short	si[2];
-		int		i1;
-		float	f1;
-	} endian;
 
-	for (i = 0; i < len; i++) {
-		c = (unsigned char)buf[i];
-		if (c < 32 || c == 127 || c == 255 ) c = ' '; // Manage unprintable chars
-		if (debug) printf(" %c", c);
-		else printf("%c", c);
-		if (c == ',') {
-			comma = i;
-			dtc = 1;
-		}
-		if (dtc && (buf[i] == 0)) {
-			data = (i + 4) & ~3;
-			for (dtc = i + 1; dtc < data ; dtc++) {
-				if (dtc < len) {
-					if (debug) printf(" ~");
-					else printf(" ");
-				}
-			}
-			dtc = 0;
-			l = data;
-			while (++comma < l && data < len) {
-				switch (buf[comma]) {
-				case 's':
-					printf("\"%s\"", (char*)(buf+data));
-					k = (strlen((char*)(buf+data)) + 4) & ~3;
-					for (j = 0; j < k; j++) {
-						if (data < len) {
-							c = (unsigned char)buf[data++];
-							if (c < 32 || c == 127 || c == 255 ) printf("%c", ' '); // Manage unprintable chars
-							if (debug) printf(" %c", c);
-//							else printf("%c", c);
-						}
-					}
-					break;
-				case 'i':
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					printf(" %6d ", endian.i1);
-					break;
-				case 'f':
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					if (endian.f1 < 10.) printf(" %06.4f ", endian.f1);
-					else if (endian.f1 < 100.) printf(" %06.3f ", endian.f1);
-					else if (endian.f1 < 1000.) printf(" %06.2f ", endian.f1);
-					else if (endian.f1 < 10000.) printf(" %06.1f ", endian.f1);
-					break;
-				case 'b':
-					// Get the number of bytes
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					n = endian.i1;
-					// Get the number of data (floats or ints ???) in little-endian format
-					for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-					if (n == endian.i1) {
-						// Display blob as string
-						printf("%d chrs: ", n);
-						for (j = 0; j < n; j++) printf("%c ", buf[data++]);
-					} else {
-						n = endian.i1;
-						// Display blob depending on command
-						if(strncmp(buf, "/meters/", 8) == 0) {
-							printf("%d rta: \n", n);
-							for (j = 0; j < n; j++) {
-								// data as short ints, little-endian format
-								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
-								endian.f1 = (float)endian.si[0] / 256.0;
-								printf("%07.2f ", endian.f1);
-							}
-						} else {
-							printf("%d flts: ", n);
-							for (j = 0; j < n; j++) {
-								// floats are little-endian format
-								for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-								printf("%06.2f ", endian.f1);
-							}
-						}
-					}
-					break;
-				default:
-					break;
-				}
-			}
-			i = data - 1;
-		}
-	}
-	printf("\n");
-}
-//
-//
-void Xfdump(char *header, char *buf, int len, int debug) {
-int i;
-
-if (debug) {
-		printf("%s, %4d B: ", header, len);
-		for (i = 0; i < len; i++) {
-			printf("%02x", (unsigned char)buf[i]);
-		}
-		printf("\n");
-	}
-	if (debug) for (i = 0; i < (strlen(header) + 10); i++) printf(" ");
-//	else       printf("%s, %4d B: ", header, len);
-	Xdump(buf, len, debug);
-}
 //
 //
 //
