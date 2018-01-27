@@ -151,7 +151,7 @@ void Xdump(char *buf, int len, int debug)
 
 	for (i = 0; i < len; i++) {
 		c = (unsigned char)buf[i];
-		if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
+		if (c < 32 || c == 127 || c == 255 ) c = ' '; // Manage unprintable chars
 		if (debug) printf(" %c", c);
 		else printf("%c", c);
 		if (c == ',') {
@@ -163,7 +163,7 @@ void Xdump(char *buf, int len, int debug)
 			for (dtc = i + 1; dtc < data ; dtc++) {
 				if (dtc < len) {
 					if (debug) printf(" ~");
-					else printf("~");
+					else printf(" ");
 				}
 			}
 			dtc = 0;
@@ -171,26 +171,27 @@ void Xdump(char *buf, int len, int debug)
 			while (++comma < l && data < len) {
 				switch (buf[comma]) {
 				case 's':
+					printf("\"%s\"", (char*)(buf+data));
 					k = (strlen((char*)(buf+data)) + 4) & ~3;
 					for (j = 0; j < k; j++) {
 						if (data < len) {
 							c = (unsigned char)buf[data++];
-							if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
+							if (c < 32 || c == 127 || c == 255 ) printf("%c", ' '); // Manage unprintable chars
 							if (debug) printf(" %c", c);
-							else printf("%c", c);
+//							else printf("%c", c);
 						}
 					}
 					break;
 				case 'i':
 					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					printf("[%6d]", endian.i1);
+					printf(" %6d ", endian.i1);
 					break;
 				case 'f':
 					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					if (endian.f1 < 10.) printf("[%06.4f]", endian.f1);
-					else if (endian.f1 < 100.) printf("[%06.3f]", endian.f1);
-					else if (endian.f1 < 1000.) printf("[%06.2f]", endian.f1);
-					else if (endian.f1 < 10000.) printf("[%06.1f]", endian.f1);
+					if (endian.f1 < 10.) printf(" %06.4f ", endian.f1);
+					else if (endian.f1 < 100.) printf(" %06.3f ", endian.f1);
+					else if (endian.f1 < 1000.) printf(" %06.2f ", endian.f1);
+					else if (endian.f1 < 10000.) printf(" %06.1f ", endian.f1);
 					break;
 				case 'b':
 					// Get the number of bytes
@@ -245,7 +246,7 @@ if (debug) {
 		printf("\n");
 	}
 	if (debug) for (i = 0; i < (strlen(header) + 10); i++) printf(" ");
-	else       printf("%s, %4d B: ", header, len);
+//	else       printf("%s, %4d B: ", header, len);
 	Xdump(buf, len, debug);
 }
 //
