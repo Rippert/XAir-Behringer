@@ -36,18 +36,15 @@ typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 #endif
 
-// Private calls used
-
-void Xfdump(char *header, char *buf, int len, int debug);
-void Xdump(char *buf, int len, int debug);
 
 // External calls used
 extern int Xsprint(char *bd, int index, char format, void *bs);
 extern int Xcparse(char *buf, char *line);
 extern void Xfdump(char *header, char *buf, int len, int debug);
+extern int scnlen(char *arr[]);
 
 // External Global Variable
-extern const char *scncmds[];
+extern const char *scncmds[]; //Path commands for scene backup, last item = NULL
 
 
 #ifdef __WIN32__
@@ -275,6 +272,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 //
 // All done. Let's send and receive messages
 // Establish logical connection with XR18 server
+	printf("scncmds[0]=%s, scncmds[1]=%s, scncmd length=%i \n", scncmds[0], scncmds[1], scnlen(scncmds));
 	printf(" XAir_Command - v1.39 - (c)2014-18 Patrick-Gilles Maillot\n\nConnecting to XR18.");
 //
 	keep_on = 1;
