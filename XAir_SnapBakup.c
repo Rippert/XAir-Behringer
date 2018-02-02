@@ -44,7 +44,7 @@ extern void Xfdump(char *header, char *buf, int len, int debug);
 extern int scnlen(char *arr[]);
 
 // External Global Variable
-extern const char *scncmds[]; //Path commands for scene backup, last item = NULL
+extern char *scncmds[]; //Path commands for scene backup, last item = NULL
 
 
 #ifdef __WIN32__
