@@ -125,6 +125,7 @@ do {																		\
 	else if (strcmp(input_line, "verbose") == 0) printf(":: verbose is %s\n",((X32verbose)?"on":"off"));\
 	else if (strcmp(input_line, "verbose off") == 0) 	X32verbose = 0;									\
 	else if (strcmp(input_line, "verbose on") == 0) 	X32verbose = 1;									\
+    else if (strncmp(input_line, "snap", 4) == 0)  sscanf(input_line+5, "%d", &snapnum);              \
 
 
 
@@ -148,7 +149,7 @@ char				xremote[12] = "/xremote";			// automatic trailing zeroes
 int					l_index;
 char				input_line[LINEMAX + 4];
 int					input_intch;						// addresses limitations in certain C compilers wit getopt()
-int					keep_on, do_keyboard, s_delay, filein;
+int					keep_on, do_keyboard, s_delay, filein, snapnum;
 FILE*				fdk = NULL;
 time_t				before, now;
 //
@@ -172,9 +173,9 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 	filein = 0;
 	do_keyboard = 1;
 	s_delay = 10;
-// Removed "s" option as it's not support by XAir series
-//	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
-	while ((input_intch = getopt(argc, argv, "i:d:k:f:t:v:h")) != -1) {
+	snapnum = 0;
+
+	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
 		switch (input_intch) {
 		case 'i':
 			strcpy(Xip_str, optarg );
@@ -189,10 +190,9 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 		case 'k':
 			sscanf(optarg, "%d", &do_keyboard);
 			break;
-//		case 's':
-//			filein = 2;
-//			sscanf(optarg, "%s", input_line);
-//			break;
+		case 's':
+			sscanf(optarg, "%d", &snapnum);
+			break;
 		case 't':
 			sscanf(optarg, "%d", &s_delay);
 			break;
@@ -272,7 +272,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 //
 // All done. Let's send and receive messages
 // Establish logical connection with XR18 server
-	printf("scncmds[0]=%s, scncmds[1]=%s, scncmd length=%i \n", scncmds[0], scncmds[1], scnlen(scncmds));
+	printf("scncmds[0]=%s, scncmds[1]=%s, scncmd length=%i snapnum=%i \n", scncmds[0], scncmds[1], scnlen(scncmds), snapnum);
 	printf(" XAir_Command - v1.39 - (c)2014-18 Patrick-Gilles Maillot\n\nConnecting to XR18.");
 //
 	keep_on = 1;
