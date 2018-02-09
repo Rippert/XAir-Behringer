@@ -26,7 +26,7 @@ return(index);
 // pathis given as a command (for use in XAir_SnapBackup).
 void Xdump(char *buf, int len, int debug)
 {
-	int i, k, n, j, l, comma = 0, data = 0, dtc = 0;
+	int i, k, n, j, l, comma = 0, data = 0, dtc = 0, isnode = 0;
 	unsigned char c;
 	union littlebig {
 		char	c1[4];
@@ -35,11 +35,13 @@ void Xdump(char *buf, int len, int debug)
 		float	f1;
 	} endian;
 
+	if (!strncmp(buf, "node", 4)) isnode = 1;
+
 	for (i = 0; i < len; i++) {
 		c = (unsigned char)buf[i];
 		if (c < 32 || c == 127 || c == 255 ) c = ' '; // Manage unprintable chars
 		if (debug) printf(" %c", c);
-		else printf("%c", c);
+		else if (!isnode) printf("%c", c);
 		if (c == ',') {
 			comma = i;
 			dtc = 1;
@@ -49,7 +51,7 @@ void Xdump(char *buf, int len, int debug)
 			for (dtc = i + 1; dtc < data ; dtc++) {
 				if (dtc < len) {
 					if (debug) printf(" ~");
-					else printf(" ");
+					else if (!isnode) printf(" ");
 				}
 			}
 			dtc = 0;
@@ -58,7 +60,8 @@ void Xdump(char *buf, int len, int debug)
 				switch (buf[comma]) {
 				case 's':
 					if (!strcmp(&(buf+data)[strlen(buf+data)-1], "\n")) (buf+data)[strlen(buf+data)-1] = 0;
-					printf("\'%s\'", (char*)(buf+data));
+					if (isnode) printf("%s", (char*)(buf+data));
+					else printf("\'%s\'", (char*)(buf+data));
 					k = (strlen((char*)(buf+data)) + 4) & ~3;
 					for (j = 0; j < k; j++) {
 						if (data < len) {
