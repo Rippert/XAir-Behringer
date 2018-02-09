@@ -57,7 +57,8 @@ void Xdump(char *buf, int len, int debug)
 			while (++comma < l && data < len) {
 				switch (buf[comma]) {
 				case 's':
-					printf("\"%s\"", (char*)(buf+data));
+					if (!strcmp(&(buf+data)[strlen(buf+data)-1], "\n")) (buf+data)[strlen(buf+data)-1] = 0;
+					printf("\'%s\'", (char*)(buf+data));
 					k = (strlen((char*)(buf+data)) + 4) & ~3;
 					for (j = 0; j < k; j++) {
 						if (data < len) {
