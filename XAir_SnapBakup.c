@@ -175,7 +175,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 // Manage arguments
 	filein = 0;
 	do_keyboard = 1;
-	s_delay = 10;
+	s_delay = 1;
 	snapnum = 0;
 
 	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
@@ -209,7 +209,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			printf("                    [-d 0/1, [0], debug option]\n");
 			printf("                    [-v 0/1  [1], verbose option]\n");
 			printf("                    [-k 0/1  [1], keyboard mode on]\n");
-			printf("                    [-t int  [10], delay between batch commands in ms]\n");
+			printf("                    [-t int  [1], delay between batch commands in ms]\n");
 			printf("                    [-s file, reads X32node formatted data lines from 'file']\n");
 			printf("                    [-f file, sets batch mode on, getting input data from 'file']\n");
 			printf("                     default IP is 192.168.0.64\n\n");

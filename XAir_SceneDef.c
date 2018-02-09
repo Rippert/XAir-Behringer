@@ -97,7 +97,6 @@ void Xdump(char *buf, int len, int debug)
 						n = endian.i1;
 						// Display blob depending on command
 						if(strncmp(buf, "/meters/", 8) == 0) {
-							printf("%d rta: \n", n);
 							for (j = 0; j < n; j++) {
 								// data as short ints, little-endian format
 								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
