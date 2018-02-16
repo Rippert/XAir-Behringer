@@ -1,30 +1,24 @@
+/*
+ * XAirSnapBackup.c
+ *
+ *  Created on: Jan 26, 2018
+ *
+ *  Backup and restore XAir settings and snapshots
+ *  Includes code modified from X32_Behringer project written by Patrick-Gilles Maillot
+ *  See: https://github.com/pmaillot/X32-Behringer.git
+ *
+ *      Authors: Ted Rippert, Patrick-Gilles Maillot
+ *
+ */
 //
-// X32_Command.c
-//
-//  Created on: Sep 19, 2014
-//
-//      X32_Command: a simple udp client for X32 sending commands and getting answers
-//
-//      Author: Patrick-Gilles Maillot
-//
-// Changelog:
-// v 1.27: remove incorrect use of macro FD_ISSET(Xfd, &ufds) in receiving IO.
-// v 1.28: remove incorrect use of FD_ISSET() in buffer check.
-// v 1.29: Change to X32_cparse.c to accept strings with space chars.
-// v 1.30: Change line_size to 512 chars
-// v 1.31: added 's' flag to read/send scene/snippets/tidbits/X32node lines from file
-// v 1.32: longer timeout when read/send scene/snippets/tidbits/X32node lines from file
-// v 1.33: added netinet/in.h include (freeBSD support)
-// v 1.34: addresses limitations in certain C compilers with getopt()
-// v 1.35: kb input is now treated as int
-// v 1.36: following changes to X32_cparse.c
-//
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+
+#define QUOTE  '"'
+#define SQUOTE '\''
 
 #ifdef __WIN32__
 #include <winsock2.h>
@@ -33,7 +27,6 @@
 #else
 #include <sys/socket.h>
 #include <sys/select.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/fcntl.h>
 #define closesocket(s) 	close(s)
@@ -47,11 +40,14 @@ typedef struct in_addr IN_ADDR;
 #endif
 
 
-
 // External calls used
-extern void Xfdump(char *header, char *buf, int len, int debug);
 extern int Xsprint(char *bd, int index, char format, void *bs);
 extern int Xcparse(char *buf, char *line);
+extern void Xfdump(char *header, char *buf, int len, int debug);
+extern int scnlen(char *arr[]);
+
+// External Global Variable
+extern char *scncmds[]; //Path commands for scene backup, last item = NULL
 
 
 #ifdef __WIN32__
@@ -83,43 +79,43 @@ int X32verbose = 1;
 		p_status = select(Xfd+1, &ufds, NULL, NULL, &timeout);	\
 	} while (0);
 //
-#define RECV																	\
-do {																			\
-	r_len = recvfrom(Xfd, r_buf, BSIZE, 0, 0, 0);								\
-	if (X32verbose) {Xfdump("X->", r_buf, r_len, X32debug); fflush(stdout);}	\
+#define RECV																\
+do {																		\
+	r_len = recvfrom(Xfd, r_buf, BSIZE, 0, 0, 0);							\
+	if (X32verbose) {Xfdump("X->", r_buf, r_len, X32debug); fflush(stdout);}\
 } while (0);
 //
-#define SEND																	\
-do {																			\
-	if (X32verbose) {Xfdump("->X", s_buf, s_len, X32debug); fflush(stdout);}	\
-	if (s_delay) millisleep (s_delay);											\
-	if (sendto (Xfd, s_buf, s_len, 0, Xip_addr, Xip_len) < 0) {					\
-		perror ("Error while sending data");									\
-		exit (EXIT_FAILURE);													\
-	}																			\
+#define SEND																\
+do {																		\
+	if (X32verbose) {Xfdump("->X", s_buf, s_len, X32debug); fflush(stdout);}\
+	if (s_delay) millisleep (s_delay);										\
+	if (sendto (Xfd, s_buf, s_len, 0, Xip_addr, Xip_len) < 0) {				\
+		perror ("Error while sending data");								\
+		exit (EXIT_FAILURE);												\
+	}																		\
 } while(0);
 //
-#define XREMOTE()																\
-do {																			\
-	if (xremote_on) {															\
-		now = time(NULL); 														\
-		if (now > before + XREMOTE_TIMEOUT) { 									\
-			if (X32debug) {Xfdump("->X", xremote, 12, 0); fflush(stdout);}		\
-			if (sendto (Xfd, xremote, 12, 0, Xip_addr, Xip_len) < 0) {			\
-				perror ("coundn't send data to X32");							\
-				exit (EXIT_FAILURE);											\
-			}																	\
-			before = now;														\
-		}																		\
-	}																			\
+#define XREMOTE()															\
+do {																		\
+	if (xremote_on) {														\
+		now = time(NULL); 													\
+		if (now > before + XREMOTE_TIMEOUT) { 								\
+			if (X32debug) {Xfdump("->X", xremote, 12, 0); fflush(stdout);}	\
+			if (sendto (Xfd, xremote, 12, 0, Xip_addr, Xip_len) < 0) {		\
+				perror ("coundn't send data to XR18");						\
+				exit (EXIT_FAILURE);										\
+			}																\
+			before = now;													\
+		}																	\
+	}																		\
 } while (0);
 //
-#define CHECKX32()				\
-	do {						\
-		RPOLL 					\
-		if (p_status > 0) {		\
-			RECV				\
-		}						\
+#define CHECKXR()			\
+	do {					\
+		RPOLL 				\
+		if (p_status > 0) {	\
+			RECV			\
+		}					\
 	} while (p_status > 0);
 //
 //
@@ -132,8 +128,14 @@ do {																			\
 	else if (strcmp(input_line, "verbose") == 0) printf(":: verbose is %s\n",((X32verbose)?"on":"off"));\
 	else if (strcmp(input_line, "verbose off") == 0) 	X32verbose = 0;									\
 	else if (strcmp(input_line, "verbose on") == 0) 	X32verbose = 1;									\
+    else if (strncmp(input_line, "snap", 4) == 0)  sscanf(input_line+5, "%d", &snapnum);              \
 
 
+
+//
+//
+//
+//
 int
 main(int argc, char **argv)
 {
@@ -141,21 +143,21 @@ struct sockaddr_in	Xip;
 struct sockaddr*	Xip_addr = (struct sockaddr *)&Xip;
 int 				Xfd;		// our socket
 char				Xip_str[20], Xport_str[8];
-int					r_len, s_len, p_status;
+int				r_len, s_len, p_status;
 char				r_buf[BSIZE];
 char				s_buf[BSIZE];
 //
-int					xremote_on;
-char				xremote[12] = "/xremote"; // automatic trailing zeroes
-int					l_index;
+int				xremote_on;
+char				xremote[12] = "/xremote";			// automatic trailing zeroes
+int				l_index, s_index;
 char				input_line[LINEMAX + 4];
-int					input_intch;						// addresses limitations in certain C compilers wit getopt()
-int					keep_on, do_keyboard, s_delay, filein;
-FILE*				fdk = NULL;
-time_t				before, now;
+int				input_intch;						// addresses limitations in certain C compilers wit getopt()
+int				keep_on, do_keyboard, s_delay, filein, snapnum, backup;
+FILE*			fdk = NULL;
+time_t			before, now;
 //
-fd_set 				ufds;
-struct timeval		timeout;
+fd_set 			ufds;
+struct timeval	timeout;
 //
 #ifdef __WIN32__
 WSADATA 			wsa;
@@ -165,17 +167,20 @@ unsigned long 		mode;
 socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 #endif
 //
-// Initialize communication with X32 server at IP ip and PORT port
-// Set default values to match your X32 desk
-	strcpy (Xip_str, "192.168.1.70");
-	strcpy (Xport_str, "10023");
+// Initialize communication with XR server at IP ip and PORT port
+// Set default values to match your XR desk
+	strcpy (Xip_str, "192.168.0.64");
+	strcpy (Xport_str, "10024");
 //
 // Manage arguments
 	filein = 0;
 	do_keyboard = 1;
-	s_delay = 10;
-	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
-		switch ((char)input_intch) {
+	s_delay = 1;
+	snapnum = 0;
+	backup = 0;
+
+	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:n:bh")) != -1) {
+		switch (input_intch) {
 		case 'i':
 			strcpy(Xip_str, optarg );
 			break;
@@ -199,15 +204,21 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 		case 'v':
 			sscanf(optarg, "%d", &X32verbose);
 			break;
+		case 'n':
+			sscanf(optarg, "%d", &snapnum);
+			break;
+		case 'b':
+			backup = 1;
+			break;
 		default:
 		case 'h':
-			printf("usage: X32_command [-i X32 console ipv4 address]\n");
-			printf("                   [-d 0/1, [0], debug option]\n");
-			printf("                   [-v 0/1  [1], verbose option]\n");
-			printf("                   [-k 0/1  [1], keyboard mode on]\n");
-			printf("                   [-t int  [10], delay between batch commands in ms]\n");
-			printf("                   [-s file, reads X32node formatted data lines from 'file']\n");
-			printf("                   [-f file, sets batch mode on, getting input data from 'file']\n");
+			printf("usage: XAir_Command [-i X32 console ipv4 address]\n");
+			printf("                    [-d 0/1, [0], debug option]\n");
+			printf("                    [-v 0/1  [1], verbose option]\n");
+			printf("                    [-k 0/1  [1], keyboard mode on]\n");
+			printf("                    [-t int  [1], delay between batch commands in ms]\n");
+			printf("                    [-s file, reads X32node formatted data lines from 'file']\n");
+			printf("                    [-f file, sets batch mode on, getting input data from 'file']\n");
 			printf("                     default IP is 192.168.0.64\n\n");
 			printf(" If option -s file is used, the program reads data from the provided file \n");
 			printf(" until EOF has been reached, and exits after that.\n\n");
@@ -225,8 +236,8 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			printf("   'xremote <on|off>': will change the xremote mode\n");
 			printf("   'xremote': will return the current xremote mode\n");
 			printf("   '' (empty line) [standard mode only]: will repeat the last entered command\n\n");
-			printf(" All other commands are parsed and sent to X32.\n");
-			printf(" Typical X32 command structure:\n");
+			printf(" All other commands are parsed and sent to XR18.\n");
+			printf(" Typical XR18 command structure:\n");
 			printf("   <command> [<format> [<data> [<data> [...]]]], where for example:\n");
 			printf("      command: /info, /status, /ch/00/mix/fader, ...\n");
 			printf("      format: ',i' ',f' ',s' or a combination: ',siss' ',ffiss' ...\n");
@@ -243,10 +254,10 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 	}
 #endif
 //
-// Load the X32 address we connect to; we're a client to X32, keep it simple.
+// Load the XR18 address we connect to; we're a client to XR18, keep it simple.
 	// Create UDP socket
 	if ((Xfd = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-		perror ("failed to create X32 socket");
+		perror ("failed to create XR18 socket");
 		exit (EXIT_FAILURE);
 	}
 	// Construct  server sockaddr_in structure
@@ -255,7 +266,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 	Xip.sin_addr.s_addr = inet_addr(Xip_str);	// IP address
 	Xip.sin_port = htons(atoi(Xport_str));		// server port/
 //
-// Set receiving from X32 to non blocking mode
+// Set receiving from XR18 to non blocking mode
 // The 500ms timeout is used for delaying the printing of '.' at startup.
 	timeout.tv_sec = 0;
 	timeout.tv_usec = 500000; //Set timeout for non blocking recvfrom(): 500ms
@@ -271,13 +282,15 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 #endif
 //
 // All done. Let's send and receive messages
-// Establish logical connection with X32 server
-	printf(" X32_Command - v1.36 - (c)2014-18 Patrick-Gilles Maillot\n\nConnecting to X32.");
+// Establish logical connection with XR18 server
+	printf("scncmds[0]=%s, scncmds[1]=%s, scncmd length=%i snapnum=%i \n", scncmds[0], scncmds[1], scnlen(scncmds), snapnum);
+	printf("backup = %i\n", backup);
+	printf(" XAir_Command - v1.39 - (c)2014-18 Patrick-Gilles Maillot\n\nConnecting to XR18.");
 //
 	keep_on = 1;
 	xremote_on = X32verbose;	// Momentarily save X32verbose
 	X32verbose = 0;
-	s_len = Xsprint(s_buf, 0, 's', "/info");
+	s_len = Xsprint(s_buf, 0, 's', "/xinfo");
 	while (keep_on) {
 		SEND  				// command /info sent;
 		RPOLL 				// read data if available
@@ -286,15 +299,15 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			return 1;		// exit on receive error
 		} else if (p_status > 0) {
 			RECV 			// We have received data - process it!
-			if (strcmp(r_buf, "/info") == 0)
+			if (strcmp(r_buf, "/xinfo") == 0)
 				break;		// Connected!
 		}					// ... else timeout
 		printf("."); fflush(stdout);
 	}
 	printf(" Done!\n");
 //
-// Set 1ms timeout to get faster response from X32 (when testing for /xremote data).
-	timeout.tv_usec = 1000; //Set timeout for non blocking recvfrom(): 1ms
+// Set 1ms timeout to get faster response from XR18 (when testing for /xremote data).
+	timeout.tv_usec = 1000; 	//Set timeout for non blocking recvfrom(): 1ms
 	X32verbose = xremote_on;	// Restore X32verbose
 	xremote_on = 0;
 	l_index = 0;
@@ -315,11 +328,11 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 					// Additional batch-mode input data checks
 					else if (strcmp(input_line, "kill") == 0) {keep_on = 0; do_keyboard = 0;}
 					else if (strncmp(input_line, "time", 4) == 0) {sscanf(input_line+5, "%d", &s_delay); printf(":: delay is: %d\n", s_delay);}
-					else if (strlen(input_line) > 1) { // X32 command line
+					else if (strlen(input_line) > 1) { // XR18 command line
 						s_len = Xcparse(s_buf, input_line);
 						SEND			// send batch command
 					}
-					CHECKX32()			// Check if X32 sent something back
+					CHECKXR()			// Check if XR sent something back
 				} else {
 					keep_on = 0;
 				}
@@ -331,14 +344,61 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			timeout.tv_usec = 10000; // Set timeout to 10ms
 			do_keyboard = 0;	// force exit after end-of-file
 			while (fgets(input_line, LINEMAX, fdk) != NULL) {
-				// skip comment lines
-				if (input_line[0] != '#') {
+				// skip comment lines and blank lines
+				if ((input_line[0] != '#') && (strlen(input_line) > 1)) {
 					input_line[strlen(input_line) - 1] = 0;	// avoid trailing '\n'
-					s_len = Xsprint(s_buf, 0, 's', "/");
-					s_len = Xsprint(s_buf, s_len, 's', ",s");
-					s_len = Xsprint(s_buf, s_len, 's', input_line);
-					SEND			// send data to X32
-					CHECKX32()		// X32 will echo back the line
+				    char *inptr = input_line;
+				    char inword[128];
+				    char argwords[128];
+				    int  posn, cmdend;
+				    int inquote=0;
+					int argnum=0;
+				    sscanf(inptr, "%127s%n", inword, &posn);
+				    cmdend = posn;
+				    inptr += posn;
+				    s_len = Xsprint(s_buf, 0, 's', inword);
+				    r_len = 0;
+			        while (sscanf(inptr, "%127s%n", inword, &posn) == 1)
+			        {
+			        		inptr += posn;
+			        		if (inquote == 1) {
+			        			strcat(argwords, inword);
+			        			if ((inword[strlen(inword)-1] == QUOTE) || (inword[strlen(inword)-1] == SQUOTE)) {
+				            		argwords[strlen(argwords)-1] = 0;
+				            		strcpy(inword, argwords);
+				            		inquote = 0;
+			        			} else {
+				        			strcat(argwords, " ");
+			        			}
+			        		}
+			            if ((inword[0] == QUOTE) || (inword[0] == SQUOTE)) {
+			            		inquote = 1;
+			            		strcpy(argwords, inword+1);
+			            		if ((inword[strlen(inword)-1] == QUOTE) || (inword[strlen(inword)-1] == SQUOTE)) {
+				            		argwords[strlen(argwords)-1] = 0;
+				            		strcpy(inword, argwords);
+				            		inquote = 0;
+			            		}
+			            		strcat(argwords, " ");
+			            }
+			            if (inquote == 0) {
+			            		argnum+=1;
+			            		r_len = Xsprint(r_buf, r_len, 's', inword);
+			            }
+			        }
+			        inword[0] = ',';
+			        for(int i = 1; i <= argnum; i = i + 1 ) {
+			              inword[i] = 's';
+			              posn = i;
+			        }
+			        inword[posn+1] = 0;
+			        s_len = Xsprint(s_buf, s_len, 's', inword);
+					memcpy(s_buf+s_len, r_buf, r_len * sizeof(char));
+					s_len += r_len;
+					SEND				// send data to XR
+					if (X32verbose) {    // No use checking for a response if not printing them
+						CHECKXR()		// XR18 will echo back the line
+					}
 				}
 			}
             printf ("---end of file\n");
@@ -347,6 +407,23 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 		}
 	}
 // Done with the file (if there was one)
+	if (backup) {
+		s_index = 0;
+		char snapname[32];
+		char snapscope[64];
+		if (snapnum){
+			if ((snapnum < 0) || (snapnum > 64)) printf("Snapshot number %i is out of range", snapnum);
+			else {
+				while (scncmds[s_index] != NULL) {
+					s_len = Xsprint(s_buf, 0, 's', "/node" );
+					s_len = Xsprint(s_buf, s_len, 's', ",s");
+					s_len = Xsprint(s_buf, s_len, 's', scncmds[s_index]);
+					SEND
+					CHECKXR()
+				}
+			}
+		}
+	}
 // revert to keyboard/interactive mode if enabled
 	if (do_keyboard) {
 		keep_on = 1;
@@ -400,7 +477,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 					}
 				}
 			}
-			CHECKX32()			// Check if X32 sent something back
+			CHECKXR()			// Check if XR sent something back
 		}
 	}
 	close(Xfd);
