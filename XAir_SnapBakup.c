@@ -143,21 +143,21 @@ struct sockaddr_in	Xip;
 struct sockaddr*	Xip_addr = (struct sockaddr *)&Xip;
 int 				Xfd;		// our socket
 char				Xip_str[20], Xport_str[8];
-int					r_len, s_len, p_status;
+int				r_len, s_len, p_status;
 char				r_buf[BSIZE];
 char				s_buf[BSIZE];
 //
-int					xremote_on;
+int				xremote_on;
 char				xremote[12] = "/xremote";			// automatic trailing zeroes
-int					l_index;
+int				l_index, s_index;
 char				input_line[LINEMAX + 4];
-int					input_intch;						// addresses limitations in certain C compilers wit getopt()
-int					keep_on, do_keyboard, s_delay, filein, snapnum;
-FILE*				fdk = NULL;
-time_t				before, now;
+int				input_intch;						// addresses limitations in certain C compilers wit getopt()
+int				keep_on, do_keyboard, s_delay, filein, snapnum, backup;
+FILE*			fdk = NULL;
+time_t			before, now;
 //
-fd_set 				ufds;
-struct timeval		timeout;
+fd_set 			ufds;
+struct timeval	timeout;
 //
 #ifdef __WIN32__
 WSADATA 			wsa;
@@ -177,8 +177,9 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 	do_keyboard = 1;
 	s_delay = 1;
 	snapnum = 0;
+	backup = 0;
 
-	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
+	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:n:bh")) != -1) {
 		switch (input_intch) {
 		case 'i':
 			strcpy(Xip_str, optarg );
@@ -202,6 +203,12 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			break;
 		case 'v':
 			sscanf(optarg, "%d", &X32verbose);
+			break;
+		case 'n':
+			sscanf(optarg, "%d", &snapnum);
+			break;
+		case 'b':
+			backup = 1;
 			break;
 		default:
 		case 'h':
@@ -277,6 +284,7 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 // All done. Let's send and receive messages
 // Establish logical connection with XR18 server
 	printf("scncmds[0]=%s, scncmds[1]=%s, scncmd length=%i snapnum=%i \n", scncmds[0], scncmds[1], scnlen(scncmds), snapnum);
+	printf("backup = %i\n", backup);
 	printf(" XAir_Command - v1.39 - (c)2014-18 Patrick-Gilles Maillot\n\nConnecting to XR18.");
 //
 	keep_on = 1;
@@ -399,6 +407,23 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 		}
 	}
 // Done with the file (if there was one)
+	if (backup) {
+		s_index = 0;
+		char snapname[32];
+		char snapscope[64];
+		if (snapnum){
+			if ((snapnum < 0) || (snapnum > 64)) printf("Snapshot number %i is out of range", snapnum);
+			else {
+				while (scncmds[s_index] != NULL) {
+					s_len = Xsprint(s_buf, 0, 's', "/node" );
+					s_len = Xsprint(s_buf, s_len, 's', ",s");
+					s_len = Xsprint(s_buf, s_len, 's', scncmds[s_index]);
+					SEND
+					CHECKXR()
+				}
+			}
+		}
+	}
 // revert to keyboard/interactive mode if enabled
 	if (do_keyboard) {
 		keep_on = 1;
