@@ -1,5 +1,5 @@
 
-CFLAGS = -Wall -Wextra -O
+CFLAGS = -Wall -Wextra
 LDFLAGS =
 LIBS =
 
@@ -10,6 +10,12 @@ CSRCS = XAir_cparse.c XAir_sprint.c XAir_SceneDef.c XAir_dump.c
 OBJS = $(CSRCS:.c=.o)
 
 all: XAir_Interface XAir_SnapBackup
+
+debug: CFLAGS += -g
+debug: all
+
+release: CFLAGS += -O
+release: all
 
 XAir_Interface: $(addprefix $(OBJDIR)/, XAir_Interface.o XAir_dump.o $(OBJS))
 	$(CC) -o $(BINDIR)/$@ $^ $(LIBS)
