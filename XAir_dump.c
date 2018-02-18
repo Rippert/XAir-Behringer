@@ -20,9 +20,11 @@
     Copyright 2018 Ted Rippert
  
    Created on: Nov. 5, 2014
-       Author: Patrick-Gilles Maillot
+       Authors: Patrick-Gilles Maillot and Ted Rippert
  
    Updated Sep. 1 2016 to support /meters/16 type (X32 fw 3.04)
+   Modified Feb 17 2018 to provide space separated format for
+   	   XAir_Interface and XAir_SnapBackup
  
  */
 
@@ -142,7 +144,7 @@ if (debug) {
 		printf("\n");
 	}
 	if (debug) for (size_t i = 0; i < (strlen(header) + 10); i++) printf(" ");
-//	else       printf("%s, %4d B: ", header, len);
+	else       printf("%s, %4d B: ", header, len);
 	Xdump(buf, len, debug);
 }
 

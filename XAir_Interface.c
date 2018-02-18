@@ -100,7 +100,7 @@ int X32verbose = 1;
 #define RECV																\
 do {																		\
 	r_len = recvfrom(Xfd, r_buf, BSIZE, 0, 0, 0);							\
-	if (X32verbose) {Xfdump("X->", r_buf, r_len, X32debug); fflush(stdout);}\
+	if (X32verbose) {Xdump(r_buf, r_len, X32debug); fflush(stdout);}\
 } while (0);
 //
 #define SEND																\
