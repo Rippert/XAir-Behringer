@@ -17,14 +17,20 @@ debug: all
 release: CFLAGS += -O
 release: all
 
-XAir_Interface: $(addprefix $(OBJDIR)/, XAir_Interface.o XAir_dump.o $(OBJS))
+XAir_Interface: $(addprefix $(OBJDIR)/, XAir_Interface.o XAir_dump.o $(OBJS)) | $(BINDIR)
 	$(CC) -o $(BINDIR)/$@ $^ $(LIBS)
 
-XAir_SnapBackup:$(addprefix $(OBJDIR)/, XAir_SnapBackup.o XAir_dump.o $(OBJS))
+XAir_SnapBackup:$(addprefix $(OBJDIR)/, XAir_SnapBackup.o XAir_dump.o $(OBJS)) | $(BINDIR)
 	$(CC) -o $(BINDIR)/$@ $^ $(LIBS)
+	
+$(BINDIR):
+	mkdir -p $@
 
-$(OBJDIR)/%.o: %.c
+$(OBJDIR)/%.o: %.c | $(OBJDIR)
 	$(CC) -c $(CFLAGS) -o $@ $<
+	
+$(OBJDIR):
+	mkdir -p $@
 
 .PHONEY: clean
 
