@@ -33,7 +33,7 @@
 
 void Xdump(char *buf, int len, int debug)
 {
-	int i, k, n, j, l, comma = 0, data = 0, dtc = 0;
+	int i, k, n, j, l, comma = 0, data = 0, dtc = 0, isnode = 0;
 	unsigned char c;
 	union littlebig {
 		char	c1[4];
@@ -42,11 +42,13 @@ void Xdump(char *buf, int len, int debug)
 		float	f1;
 	} endian;
 
+	if (!strncmp(buf, "node", 4)) isnode = 1;
+
 	for (i = 0; i < len; i++) {
 		c = (unsigned char)buf[i];
-		if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
+		if (c < 32 || c == 127 || c == 255 ) c = ' '; // Manage unprintable chars
 		if (debug) printf(" %c", c);
-		else printf("%c", c);
+		else if (!isnode) printf("%c", c);
 		if (c == ',') {
 			comma = i;
 			dtc = 1;
@@ -56,7 +58,7 @@ void Xdump(char *buf, int len, int debug)
 			for (dtc = i + 1; dtc < data ; dtc++) {
 				if (dtc < len) {
 					if (debug) printf(" ~");
-					else printf("~");
+					else if (!isnode) printf(" ");
 				}
 			}
 			dtc = 0;
@@ -64,28 +66,29 @@ void Xdump(char *buf, int len, int debug)
 			while (++comma < l && data < len) {
 				switch (buf[comma]) {
 				case 's':
+					if (!strcmp(&(buf+data)[strlen(buf+data)-1], "\n")) (buf+data)[strlen(buf+data)-1] = 0;
+					if (isnode) printf("%s", (char*)(buf+data));
+					else printf("\'%s\'", (char*)(buf+data));
 					k = (strlen((char*)(buf+data)) + 4) & ~3;
 					for (j = 0; j < k; j++) {
 						if (data < len) {
 							c = (unsigned char)buf[data++];
-							if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
+							if (c < 32 || c == 127 || c == 255 ) printf("%c", ' '); // Manage unprintable chars
 							if (debug) printf(" %c", c);
-							else printf("%c", c);
+//							else printf("%c", c);
 						}
 					}
-//						printf("str: %s ",((char*)(buf+data)));
-//						data += (strlen((char*)(buf+data)) + 4) & ~3;
 					break;
 				case 'i':
 					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					printf("[%6d]", endian.i1);
+					printf(" %6d ", endian.i1);
 					break;
 				case 'f':
 					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					if (endian.f1 < 10.) printf("[%06.4f]", endian.f1);
-					else if (endian.f1 < 100.) printf("[%06.3f]", endian.f1);
-					else if (endian.f1 < 1000.) printf("[%06.2f]", endian.f1);
-					else if (endian.f1 < 10000.) printf("[%06.1f]", endian.f1);
+					if (endian.f1 < 10.) printf(" %06.4f ", endian.f1);
+					else if (endian.f1 < 100.) printf(" %06.3f ", endian.f1);
+					else if (endian.f1 < 1000.) printf(" %06.2f ", endian.f1);
+					else if (endian.f1 < 10000.) printf(" %06.1f ", endian.f1);
 					break;
 				case 'b':
 					// Get the number of bytes
@@ -93,52 +96,25 @@ void Xdump(char *buf, int len, int debug)
 					n = endian.i1;
 					// Get the number of data (floats or ints ???) in little-endian format
 					for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-					// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
 					if (n == endian.i1) {
 						// Display blob as string
 						printf("%d chrs: ", n);
 						for (j = 0; j < n; j++) printf("%c ", buf[data++]);
 					} else {
-						// Display blob depending on command (as floats most of the time)
-						if(strncmp(buf, "/meters/15", 10) == 0) {
-							n = endian.i1 * 2;
-							printf("%d rta: \n", n);
+						n = endian.i1;
+						// Display blob depending on command
+						if(strncmp(buf, "/meters/", 8) == 0) {
 							for (j = 0; j < n; j++) {
-								//data as short ints, little-endian format
+								// data as short ints, little-endian format
 								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
 								endian.f1 = (float)endian.si[0] / 256.0;
-								// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-								printf("[%d] %07.2f ", j, endian.f1);
+								printf("%07.2f ", endian.f1);
 							}
-						} else if(strncmp(buf, "/meters/16", 10) == 0) {
-							n = endian.i1 * 2;
-							printf("M/16: %d shorts\n", n);
-							for (j = 0; j < n - 8; j++) {
-								//printf("%02x %02x, ", (unsigned char)buf[data], (unsigned char)buf[data+1]);
-								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
-								endian.f1 = (float)endian.si[0] / 32767.0;
-								if (j < 32) printf("[%d: G %07.2f] ", j, endian.f1);
-								if (j < 64) printf("[%d: C %07.2f] ", j, endian.f1);
-								if (j < 80) printf("[%d: B %07.2f] ", j, endian.f1);
-								if (j < 86) printf("[%d: M %07.2f] ", j, endian.f1);
-								if (j == 86) printf("[%d:LR %07.2f] ", j, endian.f1);
-								if (j == 87) printf("[%d:MC %07.2f] ", j, endian.f1);
-							}
-							for (; j < n; j++) {
-								//printf("%02x %02x, ", (unsigned char)buf[data], (unsigned char)buf[data+1]);
-								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
-								endian.f1 = (float)endian.si[0] / 256.0;
-								printf("[%d: A %07.2f] ", j, endian.f1);
-							}
-							printf("\n");
-
 						} else {
-							n = endian.i1;
 							printf("%d flts: ", n);
 							for (j = 0; j < n; j++) {
-								//floats are little-endian format
+								// floats are little-endian format
 								for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-								// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
 								printf("%06.2f ", endian.f1);
 							}
 						}
@@ -153,9 +129,8 @@ void Xdump(char *buf, int len, int debug)
 	}
 	printf("\n");
 }
-
-
-
+//
+//
 void Xfdump(char *header, char *buf, int len, int debug) {
 int i;
 
@@ -166,116 +141,8 @@ if (debug) {
 		}
 		printf("\n");
 	}
-	if (debug) for (i = 0; i < (strlen(header) + 10); i++) printf(" ");
-	else       printf("%s, %4d B: ", header, len);
+	if (debug) for (size_t i = 0; i < (strlen(header) + 10); i++) printf(" ");
+//	else       printf("%s, %4d B: ", header, len);
 	Xdump(buf, len, debug);
-}
-
-void Xsdump(char *str_out, char *buf, int len)
-{
-	int i, k, n, j, l, comma = 0, data = 0, dtc = 0;
-	unsigned char c;
-	char *out;
-	union littlebig {
-		char	c1[4];
-		short	si[2];
-		int		i1;
-		float	f1;
-	} endian;
-
-	out = str_out;
-	for (i = 0; i < len; i++) {
-		c = (unsigned char)buf[i];
-		if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
-		sprintf(out++, "%c", c);
-		if (c == ',') {
-			comma = i;
-			dtc = 1;
-		}
-		if (dtc && (buf[i] == 0)) {
-			data = (i + 4) & ~3;
-			for (dtc = i + 1; dtc < data ; dtc++) {
-				if (dtc < len) {
-					sprintf(out++, "~");
-				}
-			}
-			dtc = 0;
-			l = data;
-			while (++comma < l && data < len) {
-				switch (buf[comma]) {
-				case 's':
-					k = (strlen((char*)(buf+data)) + 4) & ~3;
-					for (j = 0; j < k; j++) {
-						if (data < len) {
-							c = (unsigned char)buf[data++];
-							if (c < 32 || c == 127 || c == 255 ) c = '~'; // Manage unprintable chars
-							sprintf(out++, "%c", c);
-						}
-					}
-//						printf("str: %s ",((char*)(buf+data)));
-//						data += (strlen((char*)(buf+data)) + 4) & ~3;
-					break;
-				case 'i':
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					sprintf(out, "[%6d]", endian.i1);
-					out += 8;
-					break;
-				case 'f':
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					if (endian.f1 < 10.) sprintf(out, "[%06.4f]", endian.f1);
-					else if (endian.f1 < 100.) sprintf(out, "[%06.3f]", endian.f1);
-					else if (endian.f1 < 1000.) sprintf(out, "[%06.2f]", endian.f1);
-					else if (endian.f1 < 10000.) sprintf(out, "[%06.1f]", endian.f1);
-					out += 8;
-					break;
-				case 'b':
-					// Get the number of bytes
-					for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					n = endian.i1;
-					// Get the number of data (floats or ints ???) in little-endian format
-					for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-					// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-					if (n == endian.i1) {
-						// Display blob as string
-						sprintf(out, "%3d chrs: ", n);
-						out += 10;
-						for (j = 0; j < n; j++) sprintf(out++, "%c ", buf[data++]);
-					} else {
-						// Display blob depending on command (as floats most of the time)
-						if(strncmp(buf, "/meters/15", 10) == 0) {
-							n = endian.i1 * 2;
-							sprintf(out, "%3d rta: \n", n);
-							out += 9;
-							for (j = 0; j < n; j++) {
-								//data as short ints, little-endian format
-								for (k = 0; k < 2; endian.c1[k++] = buf[data++]);
-								endian.f1 = (float)endian.si[0] / 256.0;
-								// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-								sprintf(out, "%07.2f ", endian.f1);
-								out += 8;
-							}
-						} else {
-							n = endian.i1;
-							sprintf(out, "%3d flts: ", n);
-							out += 10;
-							for (j = 0; j < n; j++) {
-								//floats are little-endian format
-								for (k = 0; k < 4; endian.c1[k++] = buf[data++]);
-								// for (k = 4; k > 0; endian.c1[--k] = buf[data++]);
-								sprintf(out, "%06.2f ", endian.f1);
-								out += 7;
-							}
-						}
-					}
-					break;
-				default:
-					break;
-				}
-			}
-			i = data - 1;
-		}
-	}
-	sprintf(out++, "\n");
-	*out++ = 0;
 }
 
