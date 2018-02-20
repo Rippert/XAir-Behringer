@@ -62,6 +62,7 @@ typedef struct in_addr IN_ADDR;
 extern int Xsprint(char *bd, int index, char format, void *bs);
 extern int Xcparse(char *buf, char *line);
 extern void Xfdump(char *header, char *buf, int len, int debug);
+extern void Xdump(char *buf, int len, int debug);
 
 // External Global Variable
 
@@ -354,11 +355,10 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 				    char *inptr = input_line;
 				    char inword[128];
 				    char argwords[128];
-				    int  posn, cmdend;
+				    int  posn;
 				    int inquote=0;
 					int argnum=0;
 				    sscanf(inptr, "%127s%n", inword, &posn);
-				    cmdend = posn;
 				    inptr += posn;
 				    s_len = Xsprint(s_buf, 0, 's', inword);
 				    r_len = 0;
