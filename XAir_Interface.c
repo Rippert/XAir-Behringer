@@ -1,5 +1,5 @@
 /*
-  XAirSnapBackup.c
+  XAir_Interface.c
   
    This file is part of the XAir-Behringer utilities.
 
@@ -21,7 +21,7 @@
  
    Created on: Jan 26, 2018
  
-   Backup and restore XAir settings and snapshots
+   Interface programs and scripts with an XAir mixer via OSC over network
    Includes code modified from X32_Behringer project written by Patrick-Gilles Maillot
    See: https://github.com/pmaillot/X32-Behringer.git
  
@@ -62,10 +62,8 @@ typedef struct in_addr IN_ADDR;
 extern int Xsprint(char *bd, int index, char format, void *bs);
 extern int Xcparse(char *buf, char *line);
 extern void Xfdump(char *header, char *buf, int len, int debug);
-extern int scnlen(char *arr[]);
 
 // External Global Variable
-extern char *scncmds[]; //Path commands for scene backup, last item = NULL
 
 
 #ifdef __WIN32__
@@ -165,10 +163,10 @@ char				s_buf[BSIZE];
 //
 int				xremote_on;
 char				xremote[12] = "/xremote";			// automatic trailing zeroes
-int				l_index, s_index;
+int				l_index;
 char				input_line[LINEMAX + 4];
 int				input_intch;						// addresses limitations in certain C compilers wit getopt()
-int				keep_on, do_keyboard, s_delay, filein, backup;
+int				keep_on, do_keyboard, s_delay, filein;
 FILE*			fdk = NULL;
 time_t			before, now;
 //
