@@ -5,7 +5,7 @@ All software in this repository is free software: you can redistribute it and/or
 
 This software is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-This repository currently provide two executables:
+This repository currently provides two executables:
 
 ### *XAir_SnapBackup*
 (**CURRENTLY INCOMPLETE**) - will provide an interface to save and restore individual snapshots of an XAir mixer to and from computer storage.
@@ -17,8 +17,12 @@ This repository currently provide two executables:
 Clone the repo to your local computer. Enter the top level of the repo directory and enter one of the following commands:
 
 `make` - compile all executables into directory `bin`
+
 `make debug` - compile all executables into directory `bin` with debugging symbols
+
 `make release` - compile all executables into directory `bin` with optimized executables
+
 `make XAir_Interface` - compile XAir_Interface executable into directory `bin`
+
 `make XAir_SnapBackup` - compile XAir_Snap Backup executable into directory `bin`
 `make clean` - remove all object and executable files from directorys `bin` and `obj`
