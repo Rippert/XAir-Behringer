@@ -192,10 +192,13 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 	do_keyboard = 1;
 	s_delay = 1;
 
-	while ((input_intch = getopt(argc, argv, "i:d:k:f:s:t:v:h")) != -1) {
+	while ((input_intch = getopt(argc, argv, "i:p:d:k:f:s:t:v:h")) != -1) {
 		switch (input_intch) {
 		case 'i':
 			strcpy(Xip_str, optarg );
+			break;
+		case 'p':
+			strcpy(Xport_str, optarg );
 			break;
 		case 'd':
 			sscanf(optarg, "%d", &X32debug);
@@ -219,14 +222,15 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 			break;
 		default:
 		case 'h':
-			printf("usage: XAir_Command [-i X32 console ipv4 address]\n");
-			printf("                    [-d 0/1, [0], debug option]\n");
-			printf("                    [-v 0/1  [1], verbose option]\n");
-			printf("                    [-k 0/1  [1], keyboard mode on]\n");
-			printf("                    [-t int  [1], delay between batch commands in ms]\n");
-			printf("                    [-s file, reads X32node formatted data lines from 'file']\n");
-			printf("                    [-f file, sets batch mode on, getting input data from 'file']\n");
-			printf("                     default IP is 192.168.0.64\n\n");
+			printf("usage: XAir_Interface [-i OSC Server ipv4 address]\n");
+			printf("                      [-p OSC Server port]\n");
+			printf("                      [-d 0/1, [0], debug option]\n");
+			printf("                      [-v 0/1  [1], verbose option]\n");
+			printf("                      [-k 0/1  [1], keyboard mode on]\n");
+			printf("                      [-t int  [1], delay between batch commands in ms]\n");
+			printf("                      [-s file, reads X32node formatted data lines from 'file']\n");
+			printf("                      [-f file, sets batch mode on, getting input data from 'file']\n");
+			printf("                      default IP is 192.168.0.64:10024\n\n");
 			printf(" If option -s file is used, the program reads data from the provided file \n");
 			printf(" until EOF has been reached, and exits after that.\n\n");
 			printf(" If option -f file is used, the program runs in batch mode, taking data from\n");
@@ -290,26 +294,26 @@ socklen_t			Xip_len = sizeof(Xip);	// length of addresses
 //
 // All done. Let's send and receive messages
 // Establish logical connection with XRAir server
-	printf("Connecting to XAir.");
+//	printf("Connecting to XAir.");
 //
 	keep_on = 1;
 	xremote_on = X32verbose;	// Momentarily save X32verbose
 	X32verbose = 0;
 	s_len = Xsprint(s_buf, 0, 's', "/xinfo");
-	while (keep_on) {
-		SEND  				// command /info sent;
-		RPOLL 				// read data if available
-		if (p_status < 0) {
-			printf("Polling for data failed\n");
-			return 1;		// exit on receive error
-		} else if (p_status > 0) {
-			RECV 			// We have received data - process it!
-			if (strcmp(r_buf, "/xinfo") == 0)
-				break;		// Connected!
-		}					// ... else timeout
-		printf("."); fflush(stdout);
-	}
-	printf(" Done!\n");
+//	while (keep_on) {
+//		SEND  				// command /info sent;
+//		RPOLL 				// read data if available
+//		if (p_status < 0) {
+//			printf("Polling for data failed\n");
+//			return 1;		// exit on receive error
+//		} else if (p_status > 0) {
+//			RECV 			// We have received data - process it!
+//			if (strcmp(r_buf, "/xinfo") == 0)
+//				break;		// Connected!
+//		}					// ... else timeout
+//		printf("."); fflush(stdout);
+//	}
+//	printf(" Done!\n");
 //
 // Set 1ms timeout to get faster response from XR18 (when testing for /xremote data).
 	timeout.tv_usec = 1000; 	//Set timeout for non blocking recvfrom(): 1ms
